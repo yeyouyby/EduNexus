@@ -98,11 +98,10 @@ const runAlgorithm = () => {
 
 onMounted(async () => {
   // Initial empty state
-  runAlgorithm()
   draw()
 
   if (window.runtime) {
-    unlisten = await window.runtime.EventsOn('tsp_update', (data: any) => {
+    window.runtime.EventsOn('tsp_update', (data: any) => {
       iteration.value = data.iteration
       bestDist.value = data.best_dist
 
@@ -110,17 +109,20 @@ onMounted(async () => {
       currentPath.value = Array.from({length: 15}, () => Math.floor(Math.random() * 15))
     })
 
-    unlistenComplete = await window.runtime.EventsOn('tsp_complete', (data: any) => {
+    window.runtime.EventsOn('tsp_complete', (data: any) => {
       bestPath.value = data.best_path // In real app, this would be an array of indices
       bestDist.value = data.best_distance
       currentPath.value = [] // clear probes
     })
   }
+
+  // Start only after listeners are ready
+  runAlgorithm()
 })
 
 onUnmounted(() => {
-  if (unlisten) unlisten()
-  if (unlistenComplete) unlistenComplete()
+  if (window.runtime) window.runtime.EventsOff('tsp_update')
+  if (window.runtime) window.runtime.EventsOff('tsp_complete')
   cancelAnimationFrame(animationFrameId)
 })
 </script>

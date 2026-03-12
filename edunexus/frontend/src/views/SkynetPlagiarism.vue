@@ -19,13 +19,13 @@ const runAlgorithm = () => {
 
 onMounted(async () => {
   if (window.runtime) {
-    unlisten = await window.runtime.EventsOn('skynet_update', (data: any) => {
+    window.runtime.EventsOn('skynet_update', (data: any) => {
       progress.value = data.progress_percent
       matches.value = data.matches_found
       scanLine.value = data.scan_line
     })
 
-    unlistenComplete = await window.runtime.EventsOn('skynet_complete', (data: any) => {
+    window.runtime.EventsOn('skynet_complete', (data: any) => {
       progress.value = 100
       matchRate.value = data.match_rate
     })
@@ -33,8 +33,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  if (unlisten) unlisten()
-  if (unlistenComplete) unlistenComplete()
+  if (window.runtime) window.runtime.EventsOff('skynet_update')
+  if (window.runtime) window.runtime.EventsOff('skynet_complete')
 })
 </script>
 
@@ -44,7 +44,7 @@ onUnmounted(() => {
     <div class="flex w-full h-full gap-8 max-w-4xl relative">
 
       <!-- Scan line overlay -->
-      <div v-if="progress < 100" class="absolute top-0 left-0 w-full h-[2px] bg-red-500 shadow-[0_0_15px_red] z-20 pointer-events-none transition-all duration-100" :style="{ top: `${scanLine}%` }"></div>
+      <div v-if="progress > 0 && progress < 100" class="absolute top-0 left-0 w-full h-[2px] bg-red-500 shadow-[0_0_15px_red] z-20 pointer-events-none transition-all duration-100" :style="{ top: `${scanLine}%` }"></div>
 
       <!-- Match alerts -->
       <div v-if="matches > 0" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30 glass border-red-500 shadow-[0_0_20px_rgba(255,0,0,0.5)] p-6 text-center">
