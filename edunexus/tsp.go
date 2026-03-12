@@ -30,6 +30,8 @@ func (a *Backend) RunPatrolPathFinder(nodes []TSPNode) {
 		return
 	}
 
+	taskCtx := a.startNewTask()
+
 	go func() {
 		runtime.EventsEmit(a.ctx, "log", fmt.Sprintf("[TSP_Core] Commencing simulated annealing TSP for %d nodes...", numNodes))
 
@@ -49,6 +51,13 @@ func (a *Backend) RunPatrolPathFinder(nodes []TSPNode) {
 		iteration := 0
 
 		for temp > 0.1 {
+			select {
+			case <-taskCtx.Done():
+				runtime.EventsEmit(a.ctx, "log", "[TSP_Core] Patrol path finding cancelled.")
+				return
+			default:
+			}
+
 			iteration++
 
 			// Create a neighbor by swapping two random nodes
@@ -91,7 +100,13 @@ func (a *Backend) RunPatrolPathFinder(nodes []TSPNode) {
 					"best_dist":    bestDist,
 					"probing_path": currentPath,
 				})
-				time.Sleep(20 * time.Millisecond) // fast visual effect
+
+				select {
+				case <-taskCtx.Done():
+					runtime.EventsEmit(a.ctx, "log", "[TSP_Core] Patrol path finding cancelled.")
+					return
+				case <-time.After(20 * time.Millisecond):
+				}
 			}
 
 			temp *= coolingRate

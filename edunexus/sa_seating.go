@@ -4,14 +4,19 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // Helper function to calculate cost based on constraints
-func calculateSeatingCost(grid []int, cols int, rows int, constraints []SAConstraint) int {
+type SAConflictPair struct {
+	Student1 int `json:"student1"`
+	Student2 int `json:"student2"`
+}
+
+func calculateSeatingCost(grid []int, cols int, rows int, constraints []SAConstraint) (int, []SAConflictPair) {
 	cost := 0
+	var conflicts []SAConflictPair
 
 	// Fast lookup for student positions
 	pos := make(map[int]int)
@@ -37,15 +42,17 @@ func calculateSeatingCost(grid []int, cols int, rows int, constraints []SAConstr
 			// If they are adjacent (dist == 1), high cost
 			if dist == 1 {
 				cost += c.Weight
+				conflicts = append(conflicts, SAConflictPair{Student1: c.Student1, Student2: c.Student2})
 			}
 		} else if c.Type == "pair" {
 			// If they are not adjacent, high cost proportional to distance
 			if dist > 1 {
 				cost += c.Weight * dist
+				conflicts = append(conflicts, SAConflictPair{Student1: c.Student1, Student2: c.Student2})
 			}
 		}
 	}
-	return cost
+	return cost, conflicts
 }
 
 // 1. Quantum Seating & Scheduling (Simulated Annealing)
@@ -55,6 +62,21 @@ func (a *Backend) RunQuantumSeating(students []SAStudent, constraints []SAConstr
 		runtime.EventsEmit(a.ctx, "log", "[SA_Core] Error: No students provided.")
 		return
 	}
+
+	seenIDs := make(map[int]struct{}, numStudents)
+	for _, s := range students {
+		if s.ID == -1 {
+			runtime.EventsEmit(a.ctx, "log", "[SA_Core] Error: Student ID -1 is reserved for empty seats.")
+			return
+		}
+		if _, exists := seenIDs[s.ID]; exists {
+			runtime.EventsEmit(a.ctx, "log", fmt.Sprintf("[SA_Core] Error: Duplicate student ID %d.", s.ID))
+			return
+		}
+		seenIDs[s.ID] = struct{}{}
+	}
+
+	taskCtx := a.startNewTask()
 
 	go func() {
 		runtime.EventsEmit(a.ctx, "log", fmt.Sprintf("[SA_Core] Initializing Quantum Seating matrix for %d students...", numStudents))
@@ -81,10 +103,12 @@ func (a *Backend) RunQuantumSeating(students []SAStudent, constraints []SAConstr
 			grid[i], grid[j] = grid[j], grid[i]
 		})
 
-		currentCost := calculateSeatingCost(grid, cols, rows, constraints)
+		currentCost, currentConflicts := calculateSeatingCost(grid, cols, rows, constraints)
 		bestGrid := make([]int, len(grid))
 		copy(bestGrid, grid)
 		bestCost := currentCost
+		var bestConflicts []SAConflictPair
+		bestConflicts = append(bestConflicts, currentConflicts...)
 
 		temp := 100.0
 		coolingRate := 0.95
@@ -96,6 +120,13 @@ func (a *Backend) RunQuantumSeating(students []SAStudent, constraints []SAConstr
 		coolingRate = math.Pow(0.01/100.0, 1.0/float64(iterations))
 
 		for i := 0; i < iterations; i++ {
+			select {
+			case <-taskCtx.Done():
+				runtime.EventsEmit(a.ctx, "log", "[SA_Core] Optimization cancelled.")
+				return
+			default:
+			}
+
 			if temp < 0.01 {
 				break
 			}
@@ -107,48 +138,53 @@ func (a *Backend) RunQuantumSeating(students []SAStudent, constraints []SAConstr
 			idx2 := rand.Intn(len(grid))
 			neighbor[idx1], neighbor[idx2] = neighbor[idx2], neighbor[idx1]
 
-			neighborCost := calculateSeatingCost(neighbor, cols, rows, constraints)
+			neighborCost, neighborConflicts := calculateSeatingCost(neighbor, cols, rows, constraints)
 
 			// Accept or reject
 			if neighborCost < currentCost {
 				grid = neighbor
 				currentCost = neighborCost
+				currentConflicts = neighborConflicts
 				if currentCost < bestCost {
 					bestCost = currentCost
 					copy(bestGrid, grid)
+					bestConflicts = make([]SAConflictPair, len(neighborConflicts))
+					copy(bestConflicts, neighborConflicts)
 				}
 			} else {
 				prob := math.Exp(float64(currentCost-neighborCost) / temp)
 				if rand.Float64() < prob {
 					grid = neighbor
 					currentCost = neighborCost
+					currentConflicts = neighborConflicts
 				}
 			}
 
 			// Emit updates less frequently to prevent frontend overwhelming, but enough for fluid animation
 			if i%5 == 0 || i == iterations-1 {
 				runtime.EventsEmit(a.ctx, "sa_update", map[string]interface{}{
-					"iteration": i,
-					"temp":      temp,
-					"conflicts": currentCost,
-					"grid":      grid,
-					"cols":      cols,
-					"rows":      rows,
+					"iteration":      i,
+					"temp":           temp,
+					"conflicts":      currentCost,
+					"grid":           grid,
+					"cols":           cols,
+					"rows":           rows,
+					"conflict_pairs": currentConflicts,
 				})
 			}
 
 			temp *= coolingRate
-			time.Sleep(10 * time.Millisecond) // Fast tick for visual annealing blur
 		}
 
 		// Final emission of the best state found
 		runtime.EventsEmit(a.ctx, "sa_update", map[string]interface{}{
-			"iteration": iterations,
-			"temp":      0,
-			"conflicts": bestCost,
-			"grid":      bestGrid,
-			"cols":      cols,
-			"rows":      rows,
+			"iteration":      iterations,
+			"temp":           0,
+			"conflicts":      bestCost,
+			"grid":           bestGrid,
+			"cols":           cols,
+			"rows":           rows,
+			"conflict_pairs": bestConflicts,
 		})
 
 		runtime.EventsEmit(a.ctx, "sa_complete", map[string]interface{}{

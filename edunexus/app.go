@@ -1,9 +1,14 @@
 package main
 
-import "context"
+import (
+	"context"
+	"sync"
+)
 
 type Backend struct {
-	ctx context.Context
+	ctx        context.Context
+	cancelTask context.CancelFunc
+	mu         sync.Mutex
 }
 
 func NewBackend() *Backend {
@@ -12,6 +17,26 @@ func NewBackend() *Backend {
 
 func (a *Backend) startup(ctx context.Context) {
 	a.ctx = ctx
+}
+
+func (a *Backend) CancelTask() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.cancelTask != nil {
+		a.cancelTask()
+		a.cancelTask = nil
+	}
+}
+
+func (a *Backend) startNewTask() context.Context {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.cancelTask != nil {
+		a.cancelTask()
+	}
+	ctx, cancel := context.WithCancel(a.ctx)
+	a.cancelTask = cancel
+	return ctx
 }
 
 type Point struct {
