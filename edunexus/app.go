@@ -61,10 +61,19 @@ func (a *Backend) RunQuantumSeating(iterations int) {
 
 // 2. Game Flow Network (MCMF)
 func (a *Backend) RunGameFlowNetwork(nodes int) {
+	if nodes < 2 {
+		runtime.EventsEmit(a.ctx, "log", "[MCMF_Core] Error: Need at least 2 nodes.")
+		return
+	}
 	go func() {
 		runtime.EventsEmit(a.ctx, "log", fmt.Sprintf("[MCMF_Core] Building network with %d nodes...", nodes))
 
 		maxFlow := 0
+		pathRange := nodes / 2
+		if pathRange < 1 {
+			pathRange = 1
+		}
+
 		for i := 0; i < 20; i++ {
 			flowInc := rand.Intn(5) + 1
 			cost := rand.Intn(100)
@@ -75,7 +84,7 @@ func (a *Backend) RunGameFlowNetwork(nodes int) {
 				"flow_added": flowInc,
 				"total_flow": maxFlow,
 				"cost": cost,
-				"path": []int{rand.Intn(nodes/2), rand.Intn(nodes/2) + nodes/2},
+				"path": []int{rand.Intn(pathRange), rand.Intn(pathRange) + nodes/2},
 			})
 			runtime.EventsEmit(a.ctx, "log", fmt.Sprintf("[MCMF_Core] Path augmented, Flow +%d (Total: %d), Cost: %d", flowInc, maxFlow, cost))
 
@@ -91,6 +100,10 @@ func (a *Backend) RunGameFlowNetwork(nodes int) {
 
 // 3. Patrol Path Finder (TSP - Simulated via Random Search for visualization)
 func (a *Backend) RunPatrolPathFinder(numNodes int) {
+	if numNodes < 5 {
+		runtime.EventsEmit(a.ctx, "log", "[TSP_Core] Error: Need at least 5 nodes.")
+		return
+	}
 	go func() {
 		runtime.EventsEmit(a.ctx, "log", fmt.Sprintf("[TSP_Core] Commencing patrol path finding for %d nodes...", numNodes))
 
@@ -145,7 +158,7 @@ func (a *Backend) RunSkynetPlagiarism(docLength int) {
 			time.Sleep(100 * time.Millisecond)
 		}
 
-		matchRate := float64(matches) / 20.0 * 100.0
+		matchRate := float64(matches) / 21.0 * 100.0
 		runtime.EventsEmit(a.ctx, "skynet_complete", map[string]interface{}{
 			"total_matches": matches,
 			"match_rate": matchRate,
@@ -156,6 +169,10 @@ func (a *Backend) RunSkynetPlagiarism(docLength int) {
 
 // 5. Convex Hull Radar (Graham Scan)
 func (a *Backend) RunConvexHullRadar(numPoints int) {
+	if numPoints < 3 {
+		runtime.EventsEmit(a.ctx, "log", "[Hull_Core] Error: Need at least 3 points.")
+		return
+	}
 	go func() {
 		runtime.EventsEmit(a.ctx, "log", fmt.Sprintf("[Hull_Core] Deploying Graham Scan for %d data points...", numPoints))
 
@@ -193,6 +210,10 @@ func (a *Backend) RunConvexHullRadar(numPoints int) {
 
 // 6. Resource Knapsack Allocator (0-1 Knapsack DP)
 func (a *Backend) RunKnapsackAllocator(capacity int, items int) {
+	if capacity <= 0 || items <= 0 {
+		runtime.EventsEmit(a.ctx, "log", "[DP_Core] Error: Capacity and items must be greater than 0.")
+		return
+	}
 	go func() {
 		runtime.EventsEmit(a.ctx, "log", fmt.Sprintf("[DP_Core] Initializing DP matrix for Knapsack (Capacity: %d, Items: %d)...", capacity, items))
 

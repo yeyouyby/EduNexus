@@ -27,8 +27,8 @@ const draw = () => {
   // Draw edges
   edges.value.forEach(edge => {
     ctx.beginPath()
-    ctx.moveTo(nodesLeft[edge[0] % 3].x, nodesLeft[edge[0] % 3].y)
-    ctx.lineTo(nodesRight[edge[1] % 3].x, nodesRight[edge[1] % 3].y)
+    ctx.moveTo(nodesLeft[edge.from % 3].x, nodesLeft[edge.from % 3].y)
+    ctx.lineTo(nodesRight[edge.to % 3].x, nodesRight[edge.to % 3].y)
     ctx.strokeStyle = `rgba(176, 38, 255, ${edge.flow / 10})` // Neon purple
     ctx.lineWidth = 2 + edge.flow
     ctx.stroke()
@@ -66,7 +66,7 @@ const runAlgorithm = () => {
 onMounted(async () => {
   draw()
   if (window.runtime) {
-    unlisten = await window.runtime.EventsOn('mcmf_update', (data: any) => {
+    window.runtime.EventsOn('mcmf_update', (data: any) => {
       flow.value = data.total_flow
       edges.value.push({
         from: data.path[0],
@@ -76,15 +76,15 @@ onMounted(async () => {
       if (edges.value.length > 10) edges.value.shift() // Keep it dynamic
     })
 
-    unlistenComplete = await window.runtime.EventsOn('mcmf_complete', (data: any) => {
+    window.runtime.EventsOn('mcmf_complete', (data: any) => {
       maxFlow.value = data.max_flow
     })
   }
 })
 
 onUnmounted(() => {
-  if (unlisten) unlisten()
-  if (unlistenComplete) unlistenComplete()
+  if (window.runtime) window.runtime.EventsOff('mcmf_update')
+  if (window.runtime) window.runtime.EventsOff('mcmf_complete')
   cancelAnimationFrame(animationFrameId)
 })
 </script>

@@ -33,7 +33,7 @@ onMounted(async () => {
       processedPercent.value = data.processed_percent
     })
 
-    unlistenComplete = await window.runtime.EventsOn('dp_complete', (data: any) => {
+    window.runtime.EventsOn('dp_complete', (data: any) => {
       maxValue.value = data.max_value
       selectedIndices.value = data.selected_items
 
@@ -46,8 +46,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  if (unlistenUpdate) unlistenUpdate()
-  if (unlistenComplete) unlistenComplete()
+  if (window.runtime) window.runtime.EventsOff('dp_update')
+  if (window.runtime) window.runtime.EventsOff('dp_complete')
 })
 </script>
 

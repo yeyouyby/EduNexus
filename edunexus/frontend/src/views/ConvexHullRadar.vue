@@ -41,20 +41,28 @@ const draw = () => {
   ctx.lineWidth = 2
   ctx.stroke()
 
+  // Backend points are emitted in 800x600 space; map to canvas space.
+  const scaleX = canvas.value.width / 800
+  const scaleY = canvas.value.height / 600
+  const toCanvasPoint = (p: any) => ({ x: p.x * scaleX, y: p.y * scaleY })
+
   // Draw points
   points.value.forEach(p => {
+    const cp = toCanvasPoint(p)
     ctx.beginPath()
-    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2)
+    ctx.arc(cp.x, cp.y, 4, 0, Math.PI * 2)
     ctx.fillStyle = 'rgba(255,255,255,0.5)'
     ctx.fill()
   })
 
   // Draw current hull line
   if (currentHull.value.length > 0) {
+    const first = toCanvasPoint(currentHull.value[0])
     ctx.beginPath()
-    ctx.moveTo(currentHull.value[0].x, currentHull.value[0].y)
+    ctx.moveTo(first.x, first.y)
     for (let i = 1; i < currentHull.value.length; i++) {
-      ctx.lineTo(currentHull.value[i].x, currentHull.value[i].y)
+      const cp = toCanvasPoint(currentHull.value[i])
+      ctx.lineTo(cp.x, cp.y)
     }
     ctx.strokeStyle = '#00FFCC'
     ctx.lineWidth = 2
@@ -65,10 +73,12 @@ const draw = () => {
 
   // Draw final hull
   if (finalHull.value.length > 0) {
+    const first = toCanvasPoint(finalHull.value[0])
     ctx.beginPath()
-    ctx.moveTo(finalHull.value[0].x, finalHull.value[0].y)
+    ctx.moveTo(first.x, first.y)
     for (let i = 1; i < finalHull.value.length; i++) {
-      ctx.lineTo(finalHull.value[i].x, finalHull.value[i].y)
+      const cp = toCanvasPoint(finalHull.value[i])
+      ctx.lineTo(cp.x, cp.y)
     }
     ctx.closePath()
     ctx.fillStyle = 'rgba(0, 255, 204, 0.1)'
@@ -96,16 +106,16 @@ const runAlgorithm = () => {
 onMounted(async () => {
   draw()
   if (window.runtime) {
-    unlistenInit = await window.runtime.EventsOn('hull_init', (data: any) => {
+    window.runtime.EventsOn('hull_init', (data: any) => {
       points.value = data
     })
 
-    unlistenUpdate = await window.runtime.EventsOn('hull_update', (data: any) => {
+    window.runtime.EventsOn('hull_update', (data: any) => {
       currentHull.value = data.current_hull
       scanningAngle.value = data.scanning_angle
     })
 
-    unlistenComplete = await window.runtime.EventsOn('hull_complete', (data: any) => {
+    window.runtime.EventsOn('hull_complete', (data: any) => {
       finalHull.value = data.final_hull
       currentHull.value = [] // clear intermediate
     })
@@ -113,9 +123,9 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  if (unlistenInit) unlistenInit()
-  if (unlistenUpdate) unlistenUpdate()
-  if (unlistenComplete) unlistenComplete()
+  if (window.runtime) window.runtime.EventsOff('hull_init')
+  if (window.runtime) window.runtime.EventsOff('hull_update')
+  if (window.runtime) window.runtime.EventsOff('hull_complete')
   cancelAnimationFrame(animationFrameId)
 })
 </script>

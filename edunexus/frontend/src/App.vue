@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 // Using window.runtime instead to avoid import errors since wailsjs is generated dynamically
 const router = useRouter()
-const logs = ref<string[]>([])
+const logs = ref<{time: string, msg: string}[]>([])
 const menuItems = [
   { path: '/quantum', name: '量子退火排座 (SA)', icon: '◈' },
   { path: '/network', name: '选课博弈流 (MCMF)', icon: '⎈' },
@@ -14,13 +14,17 @@ const menuItems = [
 ]
 
 const addLog = (msg: string) => {
-  logs.value.push(`> ${msg}`)
+  const time = new Date().toISOString().substring(11, 19)
+  logs.value.push({ time, msg: `> ${msg}` })
   if (logs.value.length > 50) logs.value.shift()
-  const logContainer = document.getElementById('log-container')
-  if (logContainer) logContainer.scrollTop = logContainer.scrollHeight
+  requestAnimationFrame(() => {
+    const logContainer = document.getElementById('log-container')
+    if (logContainer) logContainer.scrollTop = logContainer.scrollHeight
+  })
 }
 
 let wailsLogUnsubscribe: (() => void) | null = null
+let timerId: any = null
 
 const minimize = () => window.runtime?.WindowMinimise?.()
 const maximize = () => window.runtime?.WindowToggleMaximise?.()
@@ -32,7 +36,7 @@ onMounted(() => {
   addLog('[System] Wails IPC initialized.')
 
   // Random geek logs
-  setInterval(() => {
+  timerId = setInterval(() => {
     if (Math.random() > 0.8) {
       addLog(`[Sys_Routine] Checking memory allocations... OK`)
     }
@@ -50,6 +54,7 @@ onMounted(() => {
 
 onUnmounted(() => {
     if (wailsLogUnsubscribe) wailsLogUnsubscribe()
+    if (timerId) clearInterval(timerId)
 })
 </script>
 
@@ -97,8 +102,8 @@ onUnmounted(() => {
     <!-- Terminal Logger -->
     <div class="h-40 bg-black/90 border-t border-cyber-cyan/30 p-2 font-mono text-xs overflow-y-auto" id="log-container" style="--wails-draggable: no-drag">
       <div v-for="(log, idx) in logs" :key="idx" class="text-green-500/90 whitespace-pre-wrap leading-tight">
-        <span class="text-gray-500 mr-2">[{{ new Date().toISOString().substring(11,19) }}]</span>
-        <span :class="{'text-cyber-cyan': log.includes('Core'), 'text-cyber-purple': log.includes('complete')}">{{ log }}</span>
+        <span class="text-gray-500 mr-2">[{{ log.time }}]</span>
+        <span :class="{'text-cyber-cyan': log.msg.includes('Core'), 'text-cyber-purple': log.msg.includes('complete')}">{{ log.msg }}</span>
       </div>
     </div>
   </div>

@@ -62,26 +62,26 @@ onMounted(async () => {
   draw()
 
   if (window.runtime) {
-    unlisten = await window.runtime.EventsOn('sa_update', (data: any) => {
+    window.runtime.EventsOn('sa_update', (data: any) => {
       temperature.value = data.temp
       iterationCount.value = data.iteration
       conflicts.value = data.conflicts
 
       // Update seat states randomly to simulate conflicts
-      seats.forEach(s => s.state = Math.random() < (data.temp / 100) ? 1 : 0)
+      seats.forEach(s => { s.state = Math.random() < (data.temp / 100) ? 1 : 0 })
     })
 
-    unlistenComplete = await window.runtime.EventsOn('sa_complete', () => {
+    window.runtime.EventsOn('sa_complete', () => {
       temperature.value = 0
       conflicts.value = 0
-      seats.forEach(s => s.state = 0)
+      seats.forEach(s => { s.state = 0 })
     })
   }
 })
 
 onUnmounted(() => {
-  if (unlisten) unlisten()
-  if (unlistenComplete) unlistenComplete()
+  if (window.runtime) window.runtime.EventsOff('sa_update')
+  if (window.runtime) window.runtime.EventsOff('sa_complete')
   cancelAnimationFrame(animationFrameId)
 })
 </script>
