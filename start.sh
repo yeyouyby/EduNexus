@@ -42,7 +42,7 @@ npm run build
 cd ..
 
 echo -e "\n${GREEN}[2/2] Starting EduNexus Client...${NC}"
-echo -e "${YELLOW}Starting with go run . (Press Ctrl+C to stop)${NC}"
+echo -e "${YELLOW}Starting with go run -tags dev . (Press Ctrl+C to stop)${NC}"
 
 # Run wails project
-go run .
+go run -tags dev .
