@@ -35,7 +35,7 @@ func (a *Backend) RunSkynetPlagiarism(sourceText string, targetText string) {
 		runtime.EventsEmit(a.ctx, "log", "[Skynet_Core] Error: Source or Target text is empty.")
 		return
 	}
-
+	taskCtx := a.startNewTask()
 	go func() {
 		runtime.EventsEmit(a.ctx, "log", "[Skynet_Core] Initializing text analysis matrix...")
 
@@ -54,29 +54,48 @@ func (a *Backend) RunSkynetPlagiarism(sourceText string, targetText string) {
 		matchesFound := 0
 		var foundMatches []Match
 
-		for i := 0; i <= totalWords-ngramSize; i++ {
-			window := strings.Join(targetWords[i:i+ngramSize], " ")
+		// Hash set optimization
+		sourceNgramSet := make(map[string]struct{})
+		for _, ngram := range sourceNgrams {
+			sourceNgramSet[ngram] = struct{}{}
+		}
 
-			for _, pattern := range sourceNgrams {
-				if window == pattern {
-					matchesFound++
-					foundMatches = append(foundMatches, Match{Index: i, Pattern: pattern})
-					runtime.EventsEmit(a.ctx, "log", fmt.Sprintf("[Skynet_Core] MATCH DETECTED at word index %d: '%s'", i, pattern))
-					break
-				}
+		for i := 0; i <= totalWords-ngramSize; i++ {
+			select {
+			case <-taskCtx.Done():
+				runtime.EventsEmit(a.ctx, "log", "[Skynet_Core] Scan cancelled.")
+				return
+			default:
 			}
 
-			// Calculate progress based on sliding window position
-			progress := float64(i) / float64(totalWords-ngramSize) * 100.0
+			window := strings.Join(targetWords[i:i+ngramSize], " ")
+			var matchedPhrase string
+			if _, exists := sourceNgramSet[window]; exists {
+				matchesFound++
+				foundMatches = append(foundMatches, Match{Index: i, Pattern: window})
+				matchedPhrase = window
+				runtime.EventsEmit(a.ctx, "log", fmt.Sprintf("[Skynet_Core] MATCH DETECTED at word index %d: '%s'", i, window))
+			}
+
+			// Guard against division by zero
+			progress := 100.0
+			if totalWords > ngramSize {
+				progress = float64(i) / float64(totalWords-ngramSize) * 100.0
+			}
 
 			runtime.EventsEmit(a.ctx, "skynet_update", map[string]interface{}{
 				"progress_percent": progress,
 				"matches_found":    matchesFound,
 				"scan_line":        progress, // Visually link progress to top-down scan line
-				"latest_match":     window,
+				"latest_match":     matchedPhrase,
 			})
 
-			time.Sleep(50 * time.Millisecond) // Slow down for visual scanning effect
+			select {
+			case <-taskCtx.Done():
+				runtime.EventsEmit(a.ctx, "log", "[Skynet_Core] Scan cancelled.")
+				return
+			case <-time.After(50 * time.Millisecond):
+			}
 		}
 
 		// Ensure 100% at end

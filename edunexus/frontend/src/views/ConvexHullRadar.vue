@@ -201,18 +201,3 @@ onUnmounted(() => {
   </div>
 </template>
 
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.3);
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(0, 255, 204, 0.2);
-  border-radius: 3px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 255, 204, 0.5);
-}
-</style>
