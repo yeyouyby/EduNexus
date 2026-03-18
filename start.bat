@@ -21,20 +21,23 @@ echo %YELLOW%Checking dependencies...%NC%
 where go >nul 2>nul
 if %errorlevel% neq 0 (
     echo %RED%Error: 'go' command not found. Please install Go environment first.%NC%
-    exit /b 1
+    pause
+    goto :eof
 )
 
 where npm >nul 2>nul
 if %errorlevel% neq 0 (
     echo %RED%Error: 'npm' command not found. Please install Node.js and npm first.%NC%
-    exit /b 1
+    pause
+    goto :eof
 )
 
 :: Check project directory
 if not exist "edunexus\" (
     if not exist "wails.json" (
         echo %RED%Error: Please run this script in the project root or edunexus directory.%NC%
-        exit /b 1
+        pause
+        goto :eof
     )
 ) else (
     cd edunexus
@@ -44,14 +47,40 @@ echo.
 echo %GREEN%[1/2] Building Frontend...%NC%
 cd frontend
 call npm install
+if %errorlevel% neq 0 (
+    echo %RED%Error: 'npm install' failed.%NC%
+    pause
+    goto :eof
+)
 call npm run build
+if %errorlevel% neq 0 (
+    echo %RED%Error: 'npm run build' failed.%NC%
+    pause
+    goto :eof
+)
 cd ..
 
 echo.
 echo %GREEN%[2/2] Starting EduNexus Client...%NC%
-echo %YELLOW%Starting with go run -tags dev . (Press Ctrl+C to stop)%NC%
 
-:: Run wails project
-go run -tags dev .
+:: Check if Wails is installed
+where wails >nul 2>nul
+if %errorlevel% equ 0 (
+    echo %YELLOW%Wails CLI found. Starting with 'wails dev' (Press Ctrl+C to stop)%NC%
+    call wails dev
+) else (
+    echo %YELLOW%Wails CLI not found. Starting with 'go run -tags dev .' (Press Ctrl+C to stop)%NC%
+    call go run -tags dev .
+)
+
+if %errorlevel% neq 0 (
+    echo.
+    echo %RED%Error: The application failed to start or exited with an error.%NC%
+    pause
+) else (
+    echo.
+    echo %GREEN%Application closed.%NC%
+    pause
+)
 
 endlocal

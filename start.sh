@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+# Do not exit immediately on error to allow for error messages
 
 # Set console colors
 GREEN='\033[0;32m'
@@ -18,11 +18,13 @@ echo -e "${YELLOW}Checking dependencies...${NC}"
 if ! command -v go >/dev/null 2>&1; then
     echo -e "${RED}Error: 'go' command not found. Please install Go environment first.${NC}"
     exit 1
+
 fi
 
 if ! command -v npm >/dev/null 2>&1; then
     echo -e "${RED}Error: 'npm' command not found. Please install Node.js and npm first.${NC}"
     exit 1
+
 fi
 
 # Check project directory
@@ -30,6 +32,7 @@ if [ ! -d "edunexus" ]; then
     if [ ! -f "wails.json" ]; then
         echo -e "${RED}Error: Please run this script in the project root or edunexus directory.${NC}"
         exit 1
+
     fi
 else
     cd edunexus
@@ -37,12 +40,36 @@ fi
 
 echo -e "\n${GREEN}[1/2] Building Frontend...${NC}"
 cd frontend
-npm install
-npm run build
+
+if ! npm install; then
+    echo -e "${RED}Error: 'npm install' failed.${NC}"
+    exit 1
+
+fi
+
+if ! npm run build; then
+    echo -e "${RED}Error: 'npm run build' failed.${NC}"
+    exit 1
+
+fi
 cd ..
 
 echo -e "\n${GREEN}[2/2] Starting EduNexus Client...${NC}"
-echo -e "${YELLOW}Starting with go run -tags dev . (Press Ctrl+C to stop)${NC}"
 
-# Run wails project
-go run -tags dev .
+# Check if Wails is installed
+if command -v wails >/dev/null 2>&1; then
+    echo -e "${YELLOW}Wails CLI found. Starting with 'wails dev' (Press Ctrl+C to stop)${NC}"
+    wails dev
+else
+    echo -e "${YELLOW}Wails CLI not found. Starting with 'go run -tags dev .' (Press Ctrl+C to stop)${NC}"
+    go run -tags dev .
+fi
+
+EXIT_CODE=$?
+if [ $EXIT_CODE -ne 0 ]; then
+    echo -e "\n${RED}Error: The application failed to start or exited with an error (Exit code: $EXIT_CODE).${NC}"
+    exit $EXIT_CODE
+
+else
+    echo -e "\n${GREEN}Application closed.${NC}"
+fi
