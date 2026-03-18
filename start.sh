@@ -18,13 +18,11 @@ echo -e "${YELLOW}Checking dependencies...${NC}"
 if ! command -v go >/dev/null 2>&1; then
     echo -e "${RED}Error: 'go' command not found. Please install Go environment first.${NC}"
     exit 1
-
 fi
 
 if ! command -v npm >/dev/null 2>&1; then
     echo -e "${RED}Error: 'npm' command not found. Please install Node.js and npm first.${NC}"
     exit 1
-
 fi
 
 # Check project directory
@@ -32,27 +30,33 @@ if [ ! -d "edunexus" ]; then
     if [ ! -f "wails.json" ]; then
         echo -e "${RED}Error: Please run this script in the project root or edunexus directory.${NC}"
         exit 1
-
     fi
 else
-    cd edunexus
+    cd edunexus || {
+        echo -e "${RED}Error: Failed to change directory to 'edunexus'.${NC}"
+        exit 1
+    }
 fi
 
 echo -e "\n${GREEN}[1/2] Building Frontend...${NC}"
-cd frontend
+cd frontend || {
+    echo -e "${RED}Error: Failed to change directory to 'frontend'.${NC}"
+    exit 1
+}
 
 if ! npm install; then
     echo -e "${RED}Error: 'npm install' failed.${NC}"
     exit 1
-
 fi
 
 if ! npm run build; then
     echo -e "${RED}Error: 'npm run build' failed.${NC}"
     exit 1
-
 fi
-cd ..
+cd .. || {
+    echo -e "${RED}Error: Failed to change directory back from 'frontend'.${NC}"
+    exit 1
+}
 
 echo -e "\n${GREEN}[2/2] Starting EduNexus Client...${NC}"
 
@@ -66,10 +70,9 @@ else
 fi
 
 EXIT_CODE=$?
-if [ $EXIT_CODE -ne 0 ]; then
+if [ $EXIT_CODE -ne 0 ] && [ $EXIT_CODE -ne 130 ]; then
     echo -e "\n${RED}Error: The application failed to start or exited with an error (Exit code: $EXIT_CODE).${NC}"
     exit $EXIT_CODE
-
 else
     echo -e "\n${GREEN}Application closed.${NC}"
 fi
