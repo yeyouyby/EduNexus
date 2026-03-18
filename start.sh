@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+# Do not exit immediately on error to allow for error messages
 
 # Set console colors
 GREEN='\033[0;32m'
@@ -32,17 +32,47 @@ if [ ! -d "edunexus" ]; then
         exit 1
     fi
 else
-    cd edunexus
+    cd edunexus || {
+        echo -e "${RED}Error: Failed to change directory to 'edunexus'.${NC}"
+        exit 1
+    }
 fi
 
 echo -e "\n${GREEN}[1/2] Building Frontend...${NC}"
-cd frontend
-npm install
-npm run build
-cd ..
+cd frontend || {
+    echo -e "${RED}Error: Failed to change directory to 'frontend'.${NC}"
+    exit 1
+}
+
+if ! npm install; then
+    echo -e "${RED}Error: 'npm install' failed.${NC}"
+    exit 1
+fi
+
+if ! npm run build; then
+    echo -e "${RED}Error: 'npm run build' failed.${NC}"
+    exit 1
+fi
+cd .. || {
+    echo -e "${RED}Error: Failed to change directory back from 'frontend'.${NC}"
+    exit 1
+}
 
 echo -e "\n${GREEN}[2/2] Starting EduNexus Client...${NC}"
-echo -e "${YELLOW}Starting with go run -tags dev . (Press Ctrl+C to stop)${NC}"
 
-# Run wails project
-go run -tags dev .
+# Check if Wails is installed
+if command -v wails >/dev/null 2>&1; then
+    echo -e "${YELLOW}Wails CLI found. Starting with 'wails dev' (Press Ctrl+C to stop)${NC}"
+    wails dev
+else
+    echo -e "${YELLOW}Wails CLI not found. Starting with 'go run -tags dev .' (Press Ctrl+C to stop)${NC}"
+    go run -tags dev .
+fi
+
+EXIT_CODE=$?
+if [ $EXIT_CODE -ne 0 ] && [ $EXIT_CODE -ne 130 ]; then
+    echo -e "\n${RED}Error: The application failed to start or exited with an error (Exit code: $EXIT_CODE).${NC}"
+    exit $EXIT_CODE
+else
+    echo -e "\n${GREEN}Application closed.${NC}"
+fi
